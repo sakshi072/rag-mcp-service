@@ -9,8 +9,8 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from app.db import startup_database, shutdown_database
+from app.utils.document_storage import storage_service
 from app.core.middleware import TracingMiddleware
-from cachetools import TTLCache
 import logging
 
 logger = logging.getLogger(__name__)
@@ -33,6 +33,10 @@ async def lifespan(app: FastAPI):
     try:
         # Initialize database
         await startup_database()
+
+        # Initialize minIO
+        storage_service._ensure_bucket_exists()
+        logger.info("MinIO Bucket verified on startup.")
 
         logger.info("Vector Storage and Retrieval system initialized successfully")
 

@@ -46,7 +46,21 @@ class DatabaseSettings(BaseSettings):
         case_sensitive=False,
         extra="ignore"
     )
+class MinIOSettings(BaseSettings):
+    """MinIo object storage configuration"""
 
+    endpoint:str = Field(default="localhost:9000")
+    root_user:str = Field(default="minioadmin")
+    root_password:str = Field(default="minioadmin")
+    bucket:str = Field(default="document-storage")
+    secure:bool = Field(default=False)
+
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        env_prefix="MINIO_",
+        case_sensitive=False,
+        extra="ignore"
+    )
 class Settings(BaseSettings):
     """
     Main settings class - aggregates all configuration
@@ -58,7 +72,8 @@ class Settings(BaseSettings):
 
     # Nested Settings
     database: DatabaseSettings = Field(default_factory=DatabaseSettings)
-    
+    minio: MinIOSettings = Field(default_factory=MinIOSettings)
+
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",
