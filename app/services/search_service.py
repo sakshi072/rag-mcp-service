@@ -15,7 +15,7 @@ import numpy as np
 from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 from uuid import uuid4
-from app.db import DocumentChunk, Domain, db_manager
+from app.db import DocumentChunk, Domain, db_manager, SearchAnalytics
 from app.utils.embeddings import get_shared_embedder, embed_chunks
 from app.utils.reranking_strategy import (
     RerankCandidate,
@@ -23,6 +23,7 @@ from app.utils.reranking_strategy import (
     RerankStrategy,
     UnifiedReranker,
 )
+from app.schemas import SearchResult
 from app.core.settings import settings
 
 logger = logging.getLogger(__name__)
@@ -155,7 +156,19 @@ class SearchService:
             query_time = time.time() - start_time
             logger.info(f"Search complete: {query_time:.2f}s, {len(final_results)} results")
 
+            search_analytics = SearchAnalytics(
+                query_text = query_text,
+                result_chunk_ids = [item["chunk_id"] for item in final_results],
+                similarity_scores = [item["similarity"] for item in final_results],
+                embedding_time_ms = 0,
+                search_time_ms = 0,
+                total_processing_time = 0,
+                is_cached = False
+            )
+
+            session.add(search_analytics)
             await session.flush()
+            logger.info(f"Search Analytics ID: {search_analytics.id}")
 
             # Save to cache for next time
             # await SearchCache.set(query_text, search_output)
@@ -166,7 +179,7 @@ class SearchService:
                 "domain": domain_name,
                 "strategy": strategy_used,
                 "num_candidates": len(candidates),
-                "search_id": str(uuid4())[:8]
+                "search_id": search_analytics.id
             }
 
             return search_output
@@ -231,3 +244,78 @@ class SearchService:
             )
             for chunk, similarity in rows
         ]
+
+    async def get_search_history(self, limit:int = 10, offset:int = 0, domain:str = "general") -> List[Dict]:
+        """List of query search results"""
+        async with db_manager.session() as session:
+
+            stmt_subquery = (
+                select(func.array_agg(DocumentChunk.text))
+                .where(DocumentChunk.id == func.any(SearchAnalytics.result_chunk_ids))
+                .scalar_subquery()
+                .correlate(SearchAnalytics)
+            )
+
+            analytics_stmt = (
+                select(SearchAnalytics, stmt_subquery.label("found_texts"))
+                .order_by(SearchAnalytics.created_at.desc())
+                .limit(limit)
+            )
+
+            result = await session.execute(analytics_stmt)
+            search_results = result.all()
+
+            return [
+                {
+                    "search_id": str(searches.id),
+                    "query_text": searches.query_text,
+                    "chunks": [
+                        {"chunk_text":" ".join(t.split()), "similarity":round(s,4)}
+                        for t,s in zip(chunk_texts or [], searches.similarity_scores or [])
+                    ],
+                    "embedding_time_ms": searches.embedding_time_ms,
+                    "search_time_ms": searches.search_time_ms,
+                    "total_processing_time": searches.total_processing_time,
+                    "created_at": searches.created_at.isoformat()
+                }
+                for searches, chunk_texts in search_results
+            ]
+    
+    async def get_search_history_by_id(self, search_id: UUID) -> SearchResult:
+        """List of query search results"""
+        
+        logger.info("Performing db search")
+
+        async with db_manager.session() as session:
+
+            stmt_subquery = (
+                select(func.array_agg(DocumentChunk.text))
+                .where(DocumentChunk.id == func.any(SearchAnalytics.result_chunk_ids))
+                .scalar_subquery()
+                .correlate(SearchAnalytics)
+            )
+
+            analytics_stmt = (
+                select(SearchAnalytics, stmt_subquery.label("found_texts"))
+                .where(SearchAnalytics.id == search_id)
+            )
+
+            result = await session.execute(analytics_stmt)
+            search_results = result.one_or_none()
+
+            analytics, chunk_texts = search_results
+
+            result = {
+                    "search_id": str(analytics.id),
+                    "query_text": analytics.query_text,
+                    "chunks": [
+                        {"chunk_text":" ".join(t.split()), "similarity":round(s,4)}
+                        for t,s in zip(chunk_texts or [], analytics.similarity_scores or [])
+                    ],
+                    "embedding_time_ms": analytics.embedding_time_ms,
+                    "search_time_ms": analytics.search_time_ms,
+                    "total_processing_time": analytics.total_processing_time,
+                    "created_at": analytics.created_at.isoformat()
+                }
+            
+            return result

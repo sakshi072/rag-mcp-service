@@ -118,6 +118,14 @@ class KnowledgeBase:
             rerank_strategy=rerank_strategy,
         )
 
+    async def search_history(self, limit: int = 100, offset: int = 0, domain:str="general") -> List[Dict]:
+        """List of query search result"""
+        return await self._search.get_search_history(limit, offset, domain)
+    
+    async def get_search_history_by_id(self, search_id:UUID) -> List[Dict]:
+        """Query search result"""
+        return await self._search.get_search_history_by_id(search_id)
+
     # =========================================================================
     # Document CRUD (delegated to ingestion service)
     # =========================================================================
