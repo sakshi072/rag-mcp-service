@@ -101,6 +101,47 @@ class BatchUploadResponse(BaseModel):
             }
         }
 
+class DocumentMetadata(BaseModel):
+    """Document metadata schema"""
+
+    id: str = Field(..., description="Document UUID")
+    filename: str = Field(..., description="Original filename")
+    status: str = Field(..., description="Processing status")
+    chunk_count: int = Field(..., description="Number of chunks")
+    created_at: str = Field(..., description="Upload timestamp (ISO 8601)")
+
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "id": "123e4567-e89b-12d3-a456-426614174000",
+                "filename": "report.pdf",
+                "status": "completed",
+                "chunk_count": 42,
+                "created_at": "2026-01-09T15:30:00"
+            }
+        }
+class DocumentListResponse(BaseModel):
+    """Response schema for listing documents"""
+
+    documents: List[DocumentMetadata] = Field(..., description="List of documents")
+    total: int = Field(..., description="Total document count")
+
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "documents": [
+                    {
+                        "id": "123e4567-e89b-12d3-a456-426614174000",
+                        "filename": "report.pdf",
+                        "status": "completed",
+                        "chunk_count": 42,
+                        "created_at": "2026-01-09T15:30:00"
+                    }
+                ],
+                "total": 1
+            }
+        }
+
 class HealthResponse(BaseModel):
     """Health check response."""
 
@@ -119,7 +160,6 @@ class HealthResponse(BaseModel):
                 }
             }
         }
-
 
 class StatResponse(BaseModel):
     """Statistics response"""

@@ -6,6 +6,8 @@ from app.schemas.schemas import (
     FileUploadResult,
     UploadStatus,
     BatchUploadResponse,
+    DocumentMetadata,
+    DocumentListResponse,
     HealthResponse,
     StatResponse,
 )
@@ -15,6 +17,8 @@ __all__ = [
     "FileUploadResult",
     "UploadStatus",
     "BatchUploadResponse",
+    "DocumentMetadata",
+    "DocumentListResponse",
     "HealthResponse",
     "StatResponse",
 ]

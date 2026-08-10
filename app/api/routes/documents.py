@@ -5,7 +5,7 @@ from uuid import UUID
 import time
 from fastapi import APIRouter, UploadFile, File
 from app.api.dependencies import get_vectore_storage_retrieval
-from app.schemas import FileUploadResult, BatchUploadResponse, UploadStatus
+from app.schemas import FileUploadResult, BatchUploadResponse, UploadStatus, DocumentListResponse, DocumentMetadata
 import logging
 from typing import List
 
@@ -120,3 +120,108 @@ async def batch_ingest_document(
         total_processing_time=total_processing_time,
         results=results
     )
+
+@router.get("", response_model=DocumentListResponse)
+async def list_documents(
+    limit: int = 10, 
+    skip: int = 0,
+    ):
+    """
+    List all documents.
+
+    Parameters:
+    - limit: Max documents to return (default 10)
+    - skip: Number of documents to skip (for pagination)
+
+    Returns list of documents with:
+    - Document ID
+    - Filename
+    - Status (processing, completed, failed)
+    - Chunk count
+    - Upload timestamp
+    """
+    vector_storage_retrieval = get_vectore_storage_retrieval()
+
+    if vector_storage_retrieval is None:
+        raise
+
+    docs = await vector_storage_retrieval.list_documents(limit=limit + skip)
+
+    docs = docs[skip:skip + limit]
+
+    return DocumentListResponse(
+        documents=[
+            DocumentMetadata(
+                id=doc["id"],
+                filename=doc["filename"],
+                status=doc["status"],
+                chunk_count=doc["chunk_count"],
+                created_at=doc["created_at"]
+            )
+            for doc in docs
+        ],
+        total=len(docs)
+    )
+
+
+@router.get("/{document_id}")
+async def get_document(
+    document_id: str,
+    ):
+    """
+    Get detailed document information.
+
+    Returns:
+    - Document metadata
+    - File information
+    - Processing status
+    - Chunk count
+    - Extracted metadata (pages, author, etc.)
+    """
+    vector_storage_retrieval = get_vectore_storage_retrieval()
+    if vector_storage_retrieval is None:
+        raise
+
+    try:
+        doc_uuid = UUID(document_id)
+    except ValueError:
+        raise
+
+    doc = await vector_storage_retrieval.get_document(doc_uuid)
+
+    if doc is None:
+        raise
+    return doc
+
+@router.delete("/{document_id}")
+async def delete_document(
+    document_id: str,
+    ):
+    """
+    Delete a document.
+
+    This will:
+    1. Delete document from PostgreSQL (cascades to chunks)
+    2. Delete original file from MinIO
+    3. Remove all embeddings
+
+    Returns success status.
+    """
+    vector_storage_retrieval = get_vectore_storage_retrieval()
+    if vector_storage_retrieval is None:
+        raise
+
+    try:
+        doc_uuid = UUID(document_id)
+    except ValueError:
+        raise
+
+    deleted = await vector_storage_retrieval.delete_document(doc_uuid)
+
+    if not deleted:
+        raise
+
+    return {
+        "message": "Document deleted successfully",
+        "document_id": document_id
+    }

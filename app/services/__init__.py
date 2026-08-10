@@ -97,6 +97,24 @@ class KnowledgeBase:
             metadata=metadata,
         )
 
+    # =========================================================================
+    # Document CRUD (delegated to ingestion service)
+    # =========================================================================
+
+    async def get_document(self, document_id: UUID) -> Optional[Dict]:
+        """Get document metadata by ID."""
+        return await self._ingestion.get_document(document_id)
+
+    async def list_documents(
+        self, domain_name: Optional[str] = None, limit: int = 100
+    ) -> List[Dict]:
+        """List documents with optional domain filter."""
+        return await self._ingestion.list_documents(domain_name=domain_name, limit=limit)
+
+    async def delete_document(self, document_id: UUID) -> bool:
+        """Delete a document and its chunks."""
+        return await self._ingestion.delete_document(document_id)
+
     async def get_stats(self) -> Dict:
         """Get system statistics."""
         return await self._ingestion.get_stats()

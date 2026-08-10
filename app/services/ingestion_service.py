@@ -490,6 +490,61 @@ class IngestionService:
                 "created_at": doc.created_at.isoformat(),
             }
 
+    async def list_documents(
+        self, domain_name: Optional[str] = None, limit: int = 100
+    ) -> List[Dict]:
+        """List documents with optional domain filter."""
+        async with db_manager.session() as session:
+            stmt = (
+                select(Document, Domain)
+                .join(Domain)
+                .order_by(Document.created_at.desc())
+                .limit(limit)
+            )
+
+            if domain_name:
+                stmt = stmt.where(Domain.name == domain_name)
+
+            result = await session.execute(stmt)
+            rows = result.all()
+
+        return [
+            {
+                "id": str(doc.id),
+                "filename": doc.filename,
+                "domain": domain.name,
+                "status": doc.status,
+                "chunk_count": doc.chunk_count,
+                "avg_chunk_quality": doc.avg_chunk_quality,
+                "created_at": doc.created_at.isoformat(),
+            }
+            for doc, domain in rows
+        ]
+
+    async def delete_document(self, document_id: UUID) -> bool:
+        """Delete a document and its chunks."""
+        async with db_manager.session() as session:
+            result = await session.execute(
+                select(Document).where(Document.id == document_id)
+            )
+            doc = result.scalar_one_or_none()
+
+            if not doc:
+                return False
+
+            # Delete from MinIO
+            if doc.minio_object_key:
+                try:
+                    storage_service.delete_file(doc.minio_object_key)
+                except Exception as e:
+                    logger.error(f"Failed to delete from MinIO: {e}")
+
+            # Delete from database (cascades to chunks)
+            await session.delete(doc)
+            await session.commit()
+            logger.info(f"Deleted document: {document_id}")
+            return True
+
     async def get_stats(self) -> Dict:
         """Get system statistics."""
         async with db_manager.session() as session:
