@@ -1,0 +1,79 @@
+"""
+Search and query endpoints
+"""
+import time
+import logging
+from typing import Optional
+from fastapi import APIRouter, Depends
+
+from app.api.dependencies import get_vectore_storage_retrieval
+from app.schemas import SearchRequest, SearchResponse, SourceReference
+
+logger = logging.getLogger(__name__)
+
+router = APIRouter(prefix="/search", tags=["Query"])
+
+@router.post("", response_model=SearchResponse)
+async def search_documents(
+    request: SearchRequest,
+):
+    """
+    Query the Vector Storage and Retrieval system with semantic search.
+    Search knowledge base (requires 'search:knowledge' scope)
+
+    Process:
+    1. Convert query to embedding
+    2. Search PostgreSQL vector database (pgvector)
+    3. Retrieve top-k most similar chunks
+    4. Return sources with citations
+
+    Parameters:
+    - query: Your question (3-500 characters)
+    - top_k: Number of chunks to retrieve (1-10, default 3)
+
+    Returns:
+    - Source citations with:
+      - Document filename
+      - Similarity score
+      - Text preview
+
+    Security:
+    - Requires valid JWT token
+    - Token must have 'search:knowledge' scope
+    """
+    vectore_storage_retrieval = get_vectore_storage_retrieval()
+    if vectore_storage_retrieval is None:
+        raise
+
+    start_time = time.time()
+
+    result = await vectore_storage_retrieval.search(
+        query_text=request.query,
+        top_k=request.top_k,
+        domain_name=request.domain_name
+    )
+
+    query_time = time.time() - start_time
+
+    # Check if we got results
+    if not result.get("sources"):
+        return SearchResponse(
+            sources=[],
+            query_time=round(query_time, 2),
+        )
+
+    # Format sources
+    sources = [
+        SourceReference(
+            text=source["text"],
+            similarity=round(source["similarity"], 3),
+            file_url=source["file_url"]
+        )
+        for source in result["sources"]
+    ]
+
+    return SearchResponse(
+        sources=sources,
+        query_time=round(query_time, 2),
+        search_id=str(result["search_id"])
+    )

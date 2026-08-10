@@ -6,14 +6,141 @@ from pydantic import BaseModel, Field
 from typing import List, Optional, Dict, Any
 from enum import Enum
 
+# ============================================================================
+# REQUEST SCHEMAS
+# ============================================================================
+
+class SearchRequest(BaseModel):
+    """Request schema for querying the Vector Storage and Retrieval system."""
+
+    query: str = Field(
+        ...,
+        min_length=3,
+        max_length=500,
+        description="Question to ask the Vector Storage and Retrieval system",
+        examples=["What is Machine Learning?"]
+    )
+
+    top_k: int = Field(
+        default=3,
+        ge=1,
+        le=10,
+        description="Number of chunks to retrieve"
+    )
+
+    domain_name: Optional[str] = Field(None, description="Document domain to search")
+
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "query": "What is machine learning?",
+                "top_k": 3,
+                "domain": "general"
+            }
+        }
+
 class IngestRequest(BaseModel):
     """Request schema for document ingestion (placeholder for metadata)."""
     pass
 
-
 # ============================================================================
 # RESPONSE SCHEMAS
 # ============================================================================
+
+class SourceReference(BaseModel):
+    """Source chunk reference in query response."""
+
+    text: str = Field(..., description="Retrieved text chunk")
+    similarity: float = Field(..., ge=0.0, le=1.0, description="Similarity score")
+    file_url: Optional[str] = Field(None, description="Download link")
+
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "text": "Machine learning is a subset of AI...",
+                "similarity": 0.89,
+                "file_url": "http://localhost:9000/documents/2026/01/10/abc_ml_guide.pdf?X-Amz-..."
+            }
+        }
+
+class SearchResponse(BaseModel):
+    """Response schema for Vector Storage and Retrieval System query."""
+
+    sources: List[SourceReference] = Field(..., description="Source chunks used")
+    query_time: float = Field(..., description="Query processing time in seconds")
+    search_id: Optional[str] = Field(default=None, description="Search UUID")
+
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "sources": [
+                    {
+                        "text": "Machine learning enables systems to learn...",
+                        "source": "ml_basics.txt",
+                        "similarity": 0.89,
+                        "file_url": "http://localhost:9000/documents/2026/01/10/abc_ml_guide.pdf?X-Amz-..."
+                    }
+                ],
+                "query_time": 1.23,
+                "seach_id": "123e4567-e89b-12d3-a456-426614174000"
+            }
+        }
+
+class SearchResult(BaseModel):
+    """Every query search result for analysis."""
+
+    search_id: str = Field(..., description="Query search id")
+    query_text: str = Field(..., description="Query searched")
+    chunks: List[Dict] = Field(..., description="List of result chunks with similarity")
+    embedding_time_ms: float = Field(..., description="Embedding time in ms")
+    search_time_ms: float = Field(..., description="DB search time in ms")
+    total_processing_time: float = Field(..., description="Total processing time in ms")
+    created_at: str = Field(..., description="Upload timestamp (ISO 8601)")
+
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "search_id": "123e4567-e89b-12d3-a456-426614174000",
+                "query_text": "What is machine learning",
+                "chunks": [
+                    {
+                        "chunk_text": "Machine learning is a subset of AI...",
+                        "similarity": 0.89
+                    }
+                ],
+                "embedding_time_ms": 1.23,
+                "search_time_ms": 1.24,
+                "total_processing_time": 1.67,
+                "created_at": "2026-01-09T15:30:00"
+            }
+        }
+
+class SearchHistory(BaseModel):
+    """Response schema for Search analytics all query searches."""
+
+    search_history: List[SearchResult] = Field(..., description="list of all the search results")
+
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "search_history" : [
+                    {
+                        "search_id": "123e4567-e89b-12d3-a456-426614174000",
+                        "query_text": "What is machine learning",
+                        "chunks": [
+                            {
+                                "chunk_text": "Machine learning is a subset of AI...",
+                                "similarity": 0.89
+                            }
+                        ],
+                        "embedding_time_ms": 1.23,
+                        "search_time_ms": 1.24,
+                        "total_processing_time": 1.67,
+                        "created_at": "2026-01-09T15:30:00"
+                    }
+                ],
+            }
+        }
  
 class UploadStatus(str, Enum):
     """Status of individual file upload"""
@@ -120,6 +247,7 @@ class DocumentMetadata(BaseModel):
                 "created_at": "2026-01-09T15:30:00"
             }
         }
+
 class DocumentListResponse(BaseModel):
     """Response schema for listing documents"""
 

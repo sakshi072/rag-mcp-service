@@ -12,7 +12,7 @@ from app.db import startup_database, shutdown_database
 from app.services import KnowledgeBase
 from app.utils.document_storage import storage_service
 from app.api.dependencies import set_vectore_storage_retrieval
-from app.api.routes import health, documents
+from app.api.routes import health, documents, search
 from fastapi.security import HTTPBearer
 from app.core.middleware import TracingMiddleware
 from cachetools import TTLCache
@@ -80,3 +80,5 @@ app.add_middleware(TracingMiddleware)
 # Include routers
 app.include_router(health.router)
 app.include_router(documents.router)
+app.include_router(search.router)
+

@@ -8,8 +8,9 @@ from uuid import UUID
 
 from app.db import db_manager
 from app.services.ingestion_service import IngestionService
+from app.services.search_service import SearchService
 from app.schemas import FileUploadResult
-from cachetools import TTLCache
+from app.utils.reranking_strategy import RerankerConfig, RerankStrategy
 from fastapi import UploadFile
 logger = logging.getLogger(__name__)
 
@@ -21,11 +22,12 @@ class KnowledgeBase:
     Provides backward-compatible interface for existing API code.
     """
 
-    def __init__(self) -> None:
+    def __init__(self, reranker_config: Optional[RerankerConfig] = None) -> None:
         """Initialize both services."""
         logger.info("Initializing KnowledgeBase...")
 
         self._ingestion = IngestionService()
+        self._search = SearchService()
 
         # Initialize database
         db_manager.initialize()
@@ -95,6 +97,25 @@ class KnowledgeBase:
             owner_id=owner_id,
             is_public=is_public,
             metadata=metadata,
+        )
+
+    # =========================================================================
+    # Search (delegated)
+    # =========================================================================
+
+    async def search(
+        self,
+        query_text: str,
+        top_k: int = 5,
+        domain_name: Optional[str] = None,
+        rerank_strategy: RerankStrategy = RerankStrategy.COMBINED,
+    ) -> Dict:
+        """Search with vector similarity and optional reranking."""
+        return await self._search.search(
+            query_text=query_text,
+            top_k=top_k,
+            domain_name=domain_name,
+            rerank_strategy=rerank_strategy,
         )
 
     # =========================================================================
