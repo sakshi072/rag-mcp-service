@@ -3,7 +3,7 @@ MinIO storage service for document file operations
 """
 
 import io
-from datetime import datetime, timedelta
+import datetime
 from typing import Optional
 from uuid import uuid4
 
@@ -57,7 +57,7 @@ class StorageService:
         Returns:
             Object key (path in MinIO)
         """
-        now = datetime.now(datetime.UTC)
+        now = datetime.datetime.now(datetime.UTC)
         date_path = now.strftime("%Y/%m/%d")
         unique_id = str(uuid4())[:8]
 
@@ -241,7 +241,7 @@ class StorageService:
             url = self.client.presigned_get_object(
                 self.bucket_name,
                 object_key,
-                expires=timedelta(seconds=expiry_seconds)
+                expires=datetime.timedelta(seconds=expiry_seconds)
             )
             return url
         except S3Error as e:

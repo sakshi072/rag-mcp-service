@@ -7,10 +7,15 @@ Access: http://localhost:8001/docs
 
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from app.db import startup_database, shutdown_database
+from app.services import KnowledgeBase
 from app.utils.document_storage import storage_service
+from app.api.dependencies import set_vectore_storage_retrieval
+from app.api.routes import health, documents
+from fastapi.security import HTTPBearer
 from app.core.middleware import TracingMiddleware
+from cachetools import TTLCache
 import logging
 
 logger = logging.getLogger(__name__)
@@ -38,6 +43,11 @@ async def lifespan(app: FastAPI):
         storage_service._ensure_bucket_exists()
         logger.info("MinIO Bucket verified on startup.")
 
+        # Initialize Vector Storage and Retrieval system
+        domain_cache = TTLCache(maxsize=100, ttl=3600)
+        app.state.domain_cache = domain_cache
+        vector_storage_retrieval = KnowledgeBase()
+        set_vectore_storage_retrieval(vector_storage_retrieval)
         logger.info("Vector Storage and Retrieval system initialized successfully")
 
     except Exception as e:
@@ -67,6 +77,6 @@ app = FastAPI(
 
 app.add_middleware(TracingMiddleware)
 
-@app.get("/health", tags=["Health"])
-async def health_check():
-    return {"status": "ok", "database": "connected"}
+# Include routers
+app.include_router(health.router)
+app.include_router(documents.router)

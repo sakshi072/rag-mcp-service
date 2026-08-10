@@ -61,6 +61,49 @@ class MinIOSettings(BaseSettings):
         case_sensitive=False,
         extra="ignore"
     )
+
+class EmbeddingSettings(BaseSettings):
+    """
+    Embedding and chunking configuration
+    
+    Why validate ranges?
+    - chunk_size must be reasonable (too small = poor context, too large = slow)
+    - overlap must be less than chunk_size
+    """
+
+    model:str = Field(default='sentence-transformers/all-MiniLM-L6-v2', description="Embedding model name")
+    chunking_strategy:Literal["recursive_split", "semantic_chunking", "hybrid_chunking"] = Field(
+        default="recursive_split",
+        description="Chunking strategy to use"
+    )
+    chunk_size:int = Field(
+        default=512,
+        ge=100,
+        le=2048,
+        description="Chunk size in characters"
+    )
+    chunk_overlap:int = Field(
+        default=50,
+        ge=0,
+        description="Overlap between chunks"
+    )
+    
+    @field_validator("chunk_overlap")
+    @classmethod
+    def validate_overlap(cls, v:int, info) -> int:
+        """Ensure overlap is less than chunk size"""
+        chunk_size = info.data.get("chunk_size", 512)
+        if v>=chunk_size:
+            raise ValueError(f"chunk_overlap ({v}) must be < chunk size ({chunk_size})")
+        return v
+    
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        env_prefix="",
+        case_sensitive=False,
+        extra="ignore"
+    )
+
 class Settings(BaseSettings):
     """
     Main settings class - aggregates all configuration
@@ -73,7 +116,8 @@ class Settings(BaseSettings):
     # Nested Settings
     database: DatabaseSettings = Field(default_factory=DatabaseSettings)
     minio: MinIOSettings = Field(default_factory=MinIOSettings)
-
+    embedding: EmbeddingSettings = Field(default_factory=EmbeddingSettings)
+    
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",
