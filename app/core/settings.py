@@ -104,6 +104,15 @@ class EmbeddingSettings(BaseSettings):
         extra="ignore"
     )
 
+class RedisSettings(BaseSettings):
+    redis_host: str = "localhost"
+    redis_port: int = 6379
+
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        env_file_encoding="utf-8",
+        extra="ignore"
+    )
 class Settings(BaseSettings):
     """
     Main settings class - aggregates all configuration
@@ -117,6 +126,7 @@ class Settings(BaseSettings):
     database: DatabaseSettings = Field(default_factory=DatabaseSettings)
     minio: MinIOSettings = Field(default_factory=MinIOSettings)
     embedding: EmbeddingSettings = Field(default_factory=EmbeddingSettings)
+    redis: RedisSettings = Field(default_factory=RedisSettings)
     
     model_config = SettingsConfigDict(
         env_file=".env",

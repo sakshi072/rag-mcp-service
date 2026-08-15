@@ -23,6 +23,7 @@ from app.utils.reranking_strategy import (
     RerankStrategy,
     UnifiedReranker,
 )
+from app.utils.redis_cache_helper import SearchCache
 from app.schemas import SearchResult
 from app.core.settings import settings
 
@@ -284,7 +285,14 @@ class SearchService:
     async def get_search_history_by_id(self, search_id: UUID) -> SearchResult:
         """List of query search results"""
         
-        logger.info("Performing db search")
+        logger.info("Searching in Redis Cache")
+        cache_result = await SearchCache.get(str(search_id))
+
+        if cache_result:
+            logger.info("Cache hit, returning result from cache")
+            return cache_result
+        
+        logger.info("Cache miss, performing db search")
 
         async with db_manager.session() as session:
 
@@ -317,5 +325,8 @@ class SearchService:
                     "total_processing_time": analytics.total_processing_time,
                     "created_at": analytics.created_at.isoformat()
                 }
+
+            logger.info("Storing accessed search_id results in redis cache")
+            await SearchCache.set(str(analytics.id), result)
             
             return result
