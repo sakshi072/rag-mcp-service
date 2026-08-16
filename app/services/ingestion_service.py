@@ -25,6 +25,7 @@ from app.utils.semantic_chunker import HybridChunker, SemanticChunker
 from app.core.settings import settings
 from fastapi import UploadFile
 from app.schemas import FileUploadResult, UploadStatus
+from cachetools import TTLCache
 from app.core.exceptions import (
     UnsupportedFileTypeException, 
     DocumentException,  
@@ -38,9 +39,12 @@ logger = logging.getLogger(__name__)
 class IngestionService:
     """Service for document ingestion and domain management."""
 
-    def __init__(self) -> None:
+    def __init__(self, domain_cache:Optional[TTLCache] = None) -> None:
         """Initialize the ingestion service."""
         logger.info("Initializing IngestionService...")
+
+        # Store shared domain cache reference
+        self.domain_cache = domain_cache
 
         # Load config from env
         self.embedding_model = settings.embedding.model
@@ -215,7 +219,11 @@ class IngestionService:
     async def ensure_domain(self, session:AsyncSession, domain_name: str) -> UUID:
         """Ensure domain exists, create if not."""
         
-        # Check database
+        # Check local cache
+        if self.domain_cache is not None and domain_name in self.domain_cache:
+            return self.domain_cache[domain_name]
+        
+        # Cache miss: Check database
         result = await session.execute(
             select(Domain).where(Domain.name == domain_name)
         )
@@ -227,6 +235,9 @@ class IngestionService:
             session.add(domain)
             await session.flush()
 
+        # Update cache proactively
+        if self.domain_cache is not None:
+            self.domain_cache[domain_name] = domain.id
         return domain.id
 
     # =========================================================================

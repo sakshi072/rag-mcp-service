@@ -26,15 +26,19 @@ from app.utils.redis_cache_helper import SearchCache
 from app.schemas import SearchResult
 from app.core.settings import settings
 from app.core.exceptions import InvalidQueryException
+from cachetools import TTLCache
 
 logger = logging.getLogger(__name__)
 
 class SearchService:
     """Service for search and document retrieval operations."""
 
-    def __init__(self) -> None:
+    def __init__(self, domain_cache:Optional[TTLCache] = None) -> None:
         """Initialize the search service."""
         logger.info("Initializing SearchService...")
+
+        # Store the domain cache reference
+        self.domain_cache = domain_cache
 
         # Load config
         self.embedding_model = settings.embedding.model
@@ -204,10 +208,18 @@ class SearchService:
         if not domain_name:
             return None
         
+        if self.domain_cache is not None and domain_name in self.domain_cache:
+            logger.info("returning domain id from cache")
+            return self.domain_cache[domain_name]
+        
         result = await session.execute(
             select(Domain.id).where(Domain.name == domain_name)
         )
         domain_id = result.scalar_one_or_none()
+
+        if domain_id and self.domain_cache is not None:
+            logger.info(f"Added domain_id to domain cache: {domain_id}")
+            self.domain_cache[domain_name] = domain_id
         
         logger.info(f"Domain id found - {domain_id}")
         return domain_id

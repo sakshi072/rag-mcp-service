@@ -12,6 +12,7 @@ from app.services.search_service import SearchService
 from app.schemas import FileUploadResult
 from app.utils.reranking_strategy import RerankerConfig, RerankStrategy
 from fastapi import UploadFile
+from cachetools import TTLCache
 logger = logging.getLogger(__name__)
 
 
@@ -22,12 +23,12 @@ class KnowledgeBase:
     Provides backward-compatible interface for existing API code.
     """
 
-    def __init__(self, reranker_config: Optional[RerankerConfig] = None) -> None:
+    def __init__(self, domain_cache: TTLCache, reranker_config: Optional[RerankerConfig] = None) -> None:
         """Initialize both services."""
         logger.info("Initializing KnowledgeBase...")
 
-        self._ingestion = IngestionService()
-        self._search = SearchService()
+        self._ingestion = IngestionService(domain_cache=domain_cache)
+        self._search = SearchService(domain_cache=domain_cache,)
 
         # Initialize database
         db_manager.initialize()

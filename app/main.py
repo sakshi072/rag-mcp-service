@@ -47,7 +47,7 @@ async def lifespan(app: FastAPI):
         # Initialize Vector Storage and Retrieval system
         domain_cache = TTLCache(maxsize=100, ttl=3600)
         app.state.domain_cache = domain_cache
-        vector_storage_retrieval = KnowledgeBase()
+        vector_storage_retrieval = KnowledgeBase(domain_cache=domain_cache)
         set_vectore_storage_retrieval(vector_storage_retrieval)
         logger.info("Vector Storage and Retrieval system initialized successfully")
 
