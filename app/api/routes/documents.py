@@ -3,7 +3,8 @@ Document management endpoints
 """
 from uuid import UUID
 import time
-from fastapi import APIRouter, UploadFile, File
+from fastapi import APIRouter, UploadFile, File, Depends
+from app.core import require_scope, extract_scopes
 from app.api.dependencies import get_vectore_storage_retrieval
 from app.schemas import FileUploadResult, BatchUploadResponse, UploadStatus, DocumentListResponse, DocumentMetadata
 import logging
@@ -15,7 +16,8 @@ logger = logging.getLogger(__name__)
 @router.post("", response_model=FileUploadResult)
 async def ingest_document(
     file: UploadFile = File(...),
-    domain: str = "general"
+    domain: str = "general",
+    token: dict = Depends(require_scope("write:documents"))
 ):
     """
     Upload and ingest a document.
@@ -38,6 +40,13 @@ async def ingest_document(
     if vector_storage_retrieval is None:
         raise
 
+    client_id = token.get("sub", "unknown")
+    scopes = extract_scopes(token)
+
+    logger.info(
+        f"Ingest request from client: {client_id}, scopes: {scopes}"
+        )
+
     return await vector_storage_retrieval.process_single_file(
         file=file,
         domain_name=domain,
@@ -48,7 +57,8 @@ async def ingest_document(
 @router.post("/batch", response_model=BatchUploadResponse)
 async def batch_ingest_document(
     files: List[UploadFile] = File(...,description="Multiple files to upload (max 20)"),
-    domain: str = "general"
+    domain: str = "general",
+    token: dict = Depends(require_scope("write:documents"))
 ):
     """
     Upload and ingest MULTIPLE documents in one request.
@@ -70,6 +80,13 @@ async def batch_ingest_document(
     vector_storage_retrieval = get_vectore_storage_retrieval()
     if vector_storage_retrieval is None:
         raise
+
+    client_id = token.get("sub", "unknown")
+    scopes = extract_scopes(token)
+
+    logger.info(
+        f"Ingest request from client: {client_id}, scopes: {scopes}"
+        )
     
     # Validate inputs
     MAX_FILES = 20
@@ -125,6 +142,7 @@ async def batch_ingest_document(
 async def list_documents(
     limit: int = 10, 
     skip: int = 0,
+    token: dict = Depends(require_scope("read:documents"))
     ):
     """
     List all documents.
@@ -145,6 +163,13 @@ async def list_documents(
     if vector_storage_retrieval is None:
         raise
 
+    client_id = token.get("sub", "unknown")
+    scopes = extract_scopes(token)
+
+    logger.info(
+        f"List documents request from client: {client_id}, scopes: {scopes}"
+    )
+
     docs = await vector_storage_retrieval.list_documents(limit=limit + skip)
 
     docs = docs[skip:skip + limit]
@@ -163,10 +188,10 @@ async def list_documents(
         total=len(docs)
     )
 
-
 @router.get("/{document_id}")
 async def get_document(
     document_id: str,
+    token: dict = Depends(require_scope("read:documents"))
     ):
     """
     Get detailed document information.
@@ -182,6 +207,13 @@ async def get_document(
     if vector_storage_retrieval is None:
         raise
 
+    client_id = token.get("sub", "unknown")
+    scopes = extract_scopes(token)
+
+    logger.info(
+        f"Search document request from client: {client_id}, scopes: {scopes}"
+        )
+    
     try:
         doc_uuid = UUID(document_id)
     except ValueError:
@@ -196,6 +228,7 @@ async def get_document(
 @router.delete("/{document_id}")
 async def delete_document(
     document_id: str,
+    token: dict = Depends(require_scope("delete:documents"))
     ):
     """
     Delete a document.
@@ -210,6 +243,13 @@ async def delete_document(
     vector_storage_retrieval = get_vectore_storage_retrieval()
     if vector_storage_retrieval is None:
         raise
+
+    client_id = token.get("sub", "unknown")
+    scopes = extract_scopes(token)
+
+    logger.info(
+        f"Delete document request from client: {client_id}, scopes: {scopes}"
+    )
 
     try:
         doc_uuid = UUID(document_id)

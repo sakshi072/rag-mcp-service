@@ -62,6 +62,49 @@ class MinIOSettings(BaseSettings):
         extra="ignore"
     )
 
+class Auth0Settings(BaseSettings):
+    """
+    Auth0 JWT validation configuration
+    
+    Why validate domain?
+    - Ensures it's a valid Auth0 domain format
+    - Catches typos at startup, not at runtime
+    """
+
+    domain:str = Field(..., description="Auth0 tenant domain")
+    audience:str = Field(..., description="API identifier")
+
+    @field_validator("domain")
+    @classmethod
+    def validate_domain(cls, v:str) -> str:
+        """
+        Validate Auth0 domain format
+        
+        Example validation:
+        - Valid: "dev-abc123.us.auth0.com"
+        - Invalid: "https://dev-abc123.us.auth0.com" (no protocol)
+        """
+        if v.startswith("http://") or v.startswith("htpps://"):
+            raise ValueError("AUTH0_DOMAIN should not include protocol")
+        return v
+    
+    @property
+    def issuer(self) -> str:
+        """Auto-computed issuer URL"""
+        return f"https://{self.domain}/"
+    
+    @property
+    def jwks_url(self) -> str:
+        """Auto-computed JWKS URL"""
+        return f"https://{self.domain}/.well-known/jwks.json"
+    
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        env_prefix="AUTH0_",
+        case_sensitive=False,
+        extra="ignore"
+    )
+
 class EmbeddingSettings(BaseSettings):
     """
     Embedding and chunking configuration
@@ -125,9 +168,10 @@ class Settings(BaseSettings):
     # Nested Settings
     database: DatabaseSettings = Field(default_factory=DatabaseSettings)
     minio: MinIOSettings = Field(default_factory=MinIOSettings)
+    auth0: Auth0Settings = Field(default_factory=Auth0Settings)
     embedding: EmbeddingSettings = Field(default_factory=EmbeddingSettings)
     redis: RedisSettings = Field(default_factory=RedisSettings)
-    
+
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",

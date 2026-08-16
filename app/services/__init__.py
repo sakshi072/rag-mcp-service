@@ -152,4 +152,5 @@ class KnowledgeBase:
 __all__ = [
     "KnowledgeBase",
     "IngestionService",
+    "SearchService"
 ]

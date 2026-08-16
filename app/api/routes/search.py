@@ -3,7 +3,7 @@ Search and query endpoints
 """
 import time
 import logging
-from typing import Optional
+from app.core import require_scope, extract_scopes
 from fastapi import APIRouter, Depends
 
 from app.api.dependencies import get_vectore_storage_retrieval
@@ -16,6 +16,7 @@ router = APIRouter(prefix="/search", tags=["Query"])
 @router.post("", response_model=SearchResponse)
 async def search_documents(
     request: SearchRequest,
+    token: dict = Depends(require_scope("search:knowledge"))
 ):
     """
     Query the Vector Storage and Retrieval system with semantic search.
@@ -44,6 +45,13 @@ async def search_documents(
     vectore_storage_retrieval = get_vectore_storage_retrieval()
     if vectore_storage_retrieval is None:
         raise
+
+    client_id = token.get("sub", "unknown")
+    scopes = extract_scopes(token)
+
+    logger.info(
+        f"Search query request from client: {client_id}, scopes: {scopes}"
+    )
 
     start_time = time.time()
 
@@ -82,6 +90,7 @@ async def search_documents(
 async def search_history(
     limit:int = 10, 
     offset:int = 0,
+    token: dict = Depends(require_scope("search:knowledge"))
 ):
     """
     List all Query Search Results.
@@ -103,6 +112,13 @@ async def search_history(
     if vector_storage_retrieval is None:
         raise
 
+    client_id = token.get("sub", "unknown")
+    scopes = extract_scopes(token)
+
+    logger.info(
+        f"List all queries request from client: {client_id}, scopes: {scopes}"
+    )
+
     results = await vector_storage_retrieval.search_history(limit, offset)
 
     return SearchHistory(
@@ -112,6 +128,7 @@ async def search_history(
 @router.get("/{search_id}", response_model=SearchResult)
 async def search_history_by_search_id(
     search_id:str,
+    token: dict = Depends(require_scope("search:knowledge"))
     ):
     """
     Query Search Results.
@@ -131,6 +148,13 @@ async def search_history_by_search_id(
     vector_storage_retrieval = get_vectore_storage_retrieval()
     if vector_storage_retrieval is None:
         raise
+
+    client_id = token.get("sub", "unknown")
+    scopes = extract_scopes(token)
+
+    logger.info(
+        f"Search history by id request from client: {client_id}, scopes: {scopes}"
+    )
 
     result = await vector_storage_retrieval.get_search_history_by_id(search_id)
 

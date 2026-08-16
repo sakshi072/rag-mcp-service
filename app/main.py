@@ -2,7 +2,7 @@
 FastAPI REST API for Vector Storage and Retrieval System
 
 Run: uvicorn app.main:app --reload
-Access: http://localhost:8001/docs
+Access: http://localhost:8000/docs
 """
 
 from contextlib import asynccontextmanager
@@ -74,6 +74,8 @@ app = FastAPI(
     redoc_url="/redoc",
     lifespan=lifespan
 )
+
+security = HTTPBearer()
 
 app.add_middleware(TracingMiddleware)
 
