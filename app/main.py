@@ -12,6 +12,7 @@ from app.db import startup_database, shutdown_database
 from app.services import KnowledgeBase
 from app.utils.document_storage import storage_service
 from app.api.dependencies import set_vectore_storage_retrieval
+from app.core.exception_handler import register_exception_handlers
 from app.api.routes import health, documents, search
 from fastapi.security import HTTPBearer
 from app.core.middleware import TracingMiddleware
@@ -78,6 +79,7 @@ app = FastAPI(
 security = HTTPBearer()
 
 app.add_middleware(TracingMiddleware)
+register_exception_handlers(app)
 
 # Include routers
 app.include_router(health.router)

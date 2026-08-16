@@ -9,6 +9,11 @@ from app.api.dependencies import get_vectore_storage_retrieval
 from app.schemas import FileUploadResult, BatchUploadResponse, UploadStatus, DocumentListResponse, DocumentMetadata
 import logging
 from typing import List
+from app.core.exceptions import (
+    ServiceUnavailableException,
+    DocumentNotFound,
+    InvalidParameterException
+)
 
 router = APIRouter(prefix="/documents", tags=["Documents"])
 logger = logging.getLogger(__name__)
@@ -38,7 +43,7 @@ async def ingest_document(
     """
     vector_storage_retrieval = get_vectore_storage_retrieval()
     if vector_storage_retrieval is None:
-        raise
+         raise ServiceUnavailableException("KnowledgeBase", "Not initialized")
 
     client_id = token.get("sub", "unknown")
     scopes = extract_scopes(token)
@@ -79,7 +84,7 @@ async def batch_ingest_document(
     """
     vector_storage_retrieval = get_vectore_storage_retrieval()
     if vector_storage_retrieval is None:
-        raise
+         raise ServiceUnavailableException("KnowledgeBase", "Not initialized")
 
     client_id = token.get("sub", "unknown")
     scopes = extract_scopes(token)
@@ -91,7 +96,7 @@ async def batch_ingest_document(
     # Validate inputs
     MAX_FILES = 20
     if len(files) > MAX_FILES:
-        raise
+        raise InvalidParameterException("total_files", len(files), f"Maximum {MAX_FILES} files allowed per batch")
     
     
     # Start timing
@@ -161,7 +166,7 @@ async def list_documents(
     vector_storage_retrieval = get_vectore_storage_retrieval()
 
     if vector_storage_retrieval is None:
-        raise
+         raise ServiceUnavailableException("KnowledgeBase", "Not initialized")
 
     client_id = token.get("sub", "unknown")
     scopes = extract_scopes(token)
@@ -205,7 +210,7 @@ async def get_document(
     """
     vector_storage_retrieval = get_vectore_storage_retrieval()
     if vector_storage_retrieval is None:
-        raise
+         raise ServiceUnavailableException("KnowledgeBase", "Not initialized")
 
     client_id = token.get("sub", "unknown")
     scopes = extract_scopes(token)
@@ -217,12 +222,12 @@ async def get_document(
     try:
         doc_uuid = UUID(document_id)
     except ValueError:
-        raise
+        raise InvalidParameterException("Document_id", document_id, "Document ID not in UUID format")
 
     doc = await vector_storage_retrieval.get_document(doc_uuid)
 
     if doc is None:
-        raise
+        raise DocumentNotFound(document_id)
     return doc
 
 @router.delete("/{document_id}")
@@ -242,7 +247,7 @@ async def delete_document(
     """
     vector_storage_retrieval = get_vectore_storage_retrieval()
     if vector_storage_retrieval is None:
-        raise
+         raise ServiceUnavailableException("KnowledgeBase", "Not initialized")
 
     client_id = token.get("sub", "unknown")
     scopes = extract_scopes(token)
@@ -254,12 +259,12 @@ async def delete_document(
     try:
         doc_uuid = UUID(document_id)
     except ValueError:
-        raise
+        raise InvalidParameterException("Document_id", document_id, "Document ID not in UUID format")
 
     deleted = await vector_storage_retrieval.delete_document(doc_uuid)
 
     if not deleted:
-        raise
+        raise DocumentNotFound(document_id)
 
     return {
         "message": "Document deleted successfully",

@@ -12,8 +12,11 @@ from sqlalchemy.ext.asyncio import (
     async_sessionmaker
 )
 from sqlalchemy.orm import DeclarativeBase
+from sqlalchemy.exc import IntegrityError, OperationalError, SQLAlchemyError
 import logging
 from app.core.settings import settings
+from app.core.exceptions import DatabaseConnectionException, DatabaseException
+
 
 logger = logging.getLogger(__name__)
 
@@ -80,7 +83,35 @@ class DatabaseManager:
             try:
                 yield session
                 await session.commit()
+            except OperationalError as e:
+                # Connection-level failures: can't reach/talk to the DB at all.
+                await session.rollback()
+                logger.error(f"Database connection failure: {e}", exc_info=True)
+                raise DatabaseConnectionException(reason=str(e.orig) if e.orig else str(e)) from e
+            except IntegrityError as e:
+                # Constraint violations (unique/FK/check) - a client-caused
+                # conflict, not a server failure, so this maps to 409.
+                await session.rollback()
+                logger.warning(f"Database integrity violation: {e}")
+                raise DatabaseException(
+                    message="A database constraint was violated",
+                    error_code="INTEGRITY_VIOLATION",
+                    status_code=409,
+                    details={"reason": str(e.orig) if e.orig else str(e)},
+                ) from e
+            except SQLAlchemyError as e:
+                # Catch-all for any other SQLAlchemy error type not handled
+                # above (query errors, timeouts, etc).
+                await session.rollback()
+                logger.error(f"Unhandled database error: {e}", exc_info=True)
+                raise DatabaseException(
+                    message="A database error occurred",
+                    details={"reason": str(e)},
+                ) from e
             except Exception:
+                # Anything else (including our own RetrievalBaseException
+                # subclasses raised by business logic inside the block) -
+                # roll back and propagate unchanged.
                 await session.rollback()
                 raise
             finally:
