@@ -11,6 +11,12 @@ from minio import Minio
 from minio.error import S3Error
 import logging
 from app.core.settings import settings
+from app.core.exceptions import (
+    MinIOUploadException,
+    MinIODownloadException,
+    MinIODeleteException,
+    StorageException
+)
 
 logger = logging.getLogger(__name__)
 
@@ -33,9 +39,6 @@ class StorageService:
             secure=self.secure
         )
 
-        # # Ensure bucket exists
-        # self._ensure_bucket_exists()
-
     def _ensure_bucket_exists(self):
         """Create bucket if it doesn't exist"""
         try:
@@ -43,7 +46,7 @@ class StorageService:
                 self.client.make_bucket(self.bucket_name)
                 logger.info(f"Created MinIO bucket: {self.bucket_name}")
         except S3Error as e:
-            logger.error(f"Error checking/creating bucket: {e}")
+            raise StorageException(f"Failed to create bucket: {self.bucket_name}", details={"reason": str(e)})  
 
     def generate_object_key(self, filename: str) -> str:
         """
@@ -114,7 +117,7 @@ class StorageService:
             return object_key
 
         except S3Error as e:
-            logger.error(f"{filename}:{str(e)}", filename, e)
+            raise MinIOUploadException(filename, str(e))
 
     def download_file(self, object_key: str) -> bytes:
         """
@@ -136,7 +139,7 @@ class StorageService:
             return data
 
         except S3Error as e:
-            logger.error(f"{object_key}:{str(e)}", object_key, e)
+            raise MinIODownloadException(object_key, str(e))
 
     def delete_file(self, object_key: str) -> bool:
         """
@@ -155,7 +158,7 @@ class StorageService:
             self.client.remove_object(self.bucket_name, object_key)
             return True
         except S3Error as e:
-            logger.error(f"{object_key}:{str(e)}", object_key, e)
+            raise MinIODeleteException(object_key, str(e))
 
     def file_exists(self, object_key: str) -> bool:
         """
@@ -193,7 +196,7 @@ class StorageService:
                 "etag": stat.etag
             }
         except S3Error as e:
-            logger.error(f"Failed to get file info: {object_key}: {str(e)}", object_key, e)
+            raise StorageException(f"Failed to get file info: {object_key}", details={"reason": str(e)})
 
     def list_files(self, prefix: str = "") -> list[dict]:
         """
@@ -220,7 +223,7 @@ class StorageService:
                 for obj in objects
             ]
         except S3Error as e:
-            logger.error("Failed to list file")
+            raise StorageException(f"Failed to list files", details={"prefix": prefix, "reason": str(e)})
 
     def get_presigned_url(
         self,
@@ -245,7 +248,7 @@ class StorageService:
             )
             return url
         except S3Error as e:
-            logger.error("Failed to generate presigned URL")
+            raise StorageException(f"Failed to generate presigned URL", details={"object_key": object_key, "reason": str(e)})
 
 # Global storage service instance
 storage_service = StorageService()

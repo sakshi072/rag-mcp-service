@@ -9,8 +9,9 @@ from functools import lru_cache
 import httpx
 from jose import jwt, JWTError
 from jose.exceptions import ExpiredSignatureError, JWTClaimsError
-from fastapi import Security, HTTPException, status
+from fastapi import Security
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from app.core.exceptions import InvalidTokenException, ExpiredTokenException, InsufficientPermissionsException
 from app.core.settings import settings
 
 logger = logging.getLogger(__name__)
@@ -211,8 +212,8 @@ def verify_jwt(
     except ValueError as e:
         error_msg = str(e)
         if "expired" in error_msg.lower():
-            raise
-        raise
+            raise ExpiredTokenException()
+        raise InvalidTokenException(error_msg)
 
 
 def require_scope(required_scope: str):
@@ -238,10 +239,7 @@ def require_scope(required_scope: str):
         """Check if token has required scope"""
         if not has_scope(required_scope, token):
             scopes = extract_scopes(token)
-            raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail=f"Permission denied. Required scope: '{scopes}'"
-        )
+            raise InsufficientPermissionsException(required_scope, scopes)
         return token
 
     return scope_checker

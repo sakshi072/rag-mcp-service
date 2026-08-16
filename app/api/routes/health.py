@@ -5,6 +5,7 @@ from fastapi import APIRouter
 
 from app.api.dependencies import get_vectore_storage_retrieval
 from app.schemas import HealthResponse, StatResponse
+from app.core.exceptions import ServiceUnavailableException
 
 router = APIRouter(prefix="", tags=["System"])
 
@@ -50,7 +51,7 @@ async def health_check():
     """
     vector_storage_retrieval = get_vectore_storage_retrieval()
     if vector_storage_retrieval is None:
-        raise
+        raise ServiceUnavailableException("KnowledgeBase", "Not initialized")
 
     components = {
         "vector_storage_retrieval": "ok",
@@ -76,7 +77,7 @@ async def get_stats():
     """
     vector_storage_retrieval = get_vectore_storage_retrieval()
     if vector_storage_retrieval is None:
-        raise
+        raise ServiceUnavailableException("KnowledgeBase", "Not initialized")
 
     stats = await vector_storage_retrieval.get_stats()
 

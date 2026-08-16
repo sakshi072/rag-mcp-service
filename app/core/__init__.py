@@ -13,6 +13,9 @@ from app.core.security import (
 )
 from app.core.exceptions import (
     RetrievalBaseException,
+    ValidationException,
+    AuthException,
+    StorageException,
     DatabaseException,
     ServiceUnavailableException,
     DocumentNotFound,
@@ -20,7 +23,11 @@ from app.core.exceptions import (
     DocumentTooLargeException,
     DuplicateDocumentException,
     InsufficientContentException,
-    InvalidParameterException
+    InvalidTokenException,
+    ExpiredTokenException,
+    InsufficientPermissionsException,
+    InvalidParameterException,
+    InvalidType
 )
 
 __all__ = [
@@ -33,12 +40,19 @@ __all__ = [
     "register_exception_handlers",
     "TracingMiddleware",
     "RetrievalBaseException",
-     "DatabaseException",
+    "ValidationException",
+    "AuthException",
+    "StorageException",
+    "DatabaseException",
     "ServiceUnavailableException",
     "DocumentNotFound",
     "DocumentParsingException",
     "DocumentTooLargeException",
     "DuplicateDocumentException",
     "InsufficientContentException",
-    "InvalidParameterException"
+    "InvalidTokenException",
+    "ExpiredTokenException",
+    "InsufficientPermissionsException",
+    "InvalidParameterException",
+    "InvalidType"
 ]

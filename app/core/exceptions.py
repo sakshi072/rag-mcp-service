@@ -108,6 +108,51 @@ class DocumentNotFound(DocumentException):
         )
 
 # ============================================================================
+# Storage Exceptions
+# ============================================================================
+
+class StorageException(RetrievalBaseException):
+    """Base exception for storage-related errors"""
+    def __init__(self, message: str, error_code: str = "STORAGE_ERROR", details: Optional[Dict[str, Any]] = None):
+        super().__init__(message, error_code=error_code, status_code=500, details=details)
+
+class MinIOUploadException(StorageException):
+    """Raised when MinIO upload fails"""
+    def __init__(self, filename:str, reason:str):
+        super().__init__(
+            message=f"Failed to upload file to object storage",
+            error_code="MINIO_UPLOAD_FAILED",
+            details={
+                "filename":filename,
+                "reason":reason
+            }
+        )
+
+class MinIODownloadException(StorageException):
+    """Raised when MinIO download fails"""
+    def __init__(self, object_key: str, reason: str):
+        super().__init__(
+            message=f"Failed to download file from object storage",
+            error_code="MINIO_DOWNLOAD_FAILED",
+            details={
+                "object_key": object_key,
+                "reason": reason
+            }
+        )
+
+class MinIODeleteException(StorageException):
+    """Raised when MinIO deletion fails"""
+    def __init__(self, object_key: str, reason: str):
+        super().__init__(
+            message=f"Failed to delete file from object storage",
+            error_code="MINIO_DELETE_FAILED",
+            details={
+                "object_key": object_key,
+                "reason": reason
+            }
+        )
+
+# ============================================================================
 # Database Exceptions
 # ============================================================================
 class DatabaseException(RetrievalBaseException):
@@ -123,6 +168,65 @@ class DatabaseConnectionException(DatabaseException):
             error_code="DATABASE_CONNECTION_FAILED",
             status_code=503,
             details={"reason": reason}
+        )
+
+# ============================================================================
+# Search Exceptions
+# ============================================================================
+class SearchException(RetrievalBaseException):
+    """Base exception for search-related errors"""
+    def __init__(self, message: str, error_code:str = "SEARCH_ERROR", status_code: int = 500, details: Optional[Dict[str, Any]] = None):
+        super().__init__(message, error_code=error_code, status_code=status_code, details=details)
+
+class InvalidQueryException(SearchException):
+    """Raised when search query is invalid"""
+    def __init__(self, query: str, reason: str):
+        super().__init__(
+            message="Invalid search query",
+            error_code="INVALID_QUERY",
+            status_code=400,
+            details={
+                "query": query[:100],  # Truncate for safety
+                "reason": reason
+            }
+        )
+
+# ============================================================================
+# Authentication & Authorization Exceptions
+# ============================================================================
+class AuthException(RetrievalBaseException):
+    """Base exception for auth-related errors"""
+    def __init__(self, message: str, error_code:str = "AUTH_ERROR", status_code: int = 401, details: Optional[Dict[str, Any]] = None):
+        super().__init__(message, error_code=error_code, status_code=status_code, details=details)
+    
+class InvalidTokenException(AuthException):
+    """Raise when token is invalid"""
+    def __init__(self, reason:str):
+        super().__init__(
+            message="Invalid authentication token",
+            error_code="INVALID_TOKEN",
+            details={"reason":reason}
+        )
+
+class ExpiredTokenException(AuthException):
+    """Raise when token is expired"""
+    def __init__(self):
+        super().__init__(
+            message="Authentication token has expired",
+            error_code="EXPIRED_TOKEN",
+        )  
+
+class InsufficientPermissionsException(AuthException):
+    """Raise when token is invalid"""
+    def __init__(self, required_scope:str, available_scopes:list):
+        super().__init__(
+            message="Insufficient permissions to perform this action",
+            error_code="INSUFFICIENT_PERMISSIONS",
+            status_code=403,
+           details={
+                "required_scope": required_scope,
+                "available_scopes": available_scopes
+            }
         )
 
 # ============================================================================
@@ -146,6 +250,58 @@ class InvalidParameterException(ValidationException):
             }
         )
 
+class MissingParameterException(ValidationException):
+    """Raised when required parameter is missing"""
+    def __init__(self, parameter: str):
+        super().__init__(
+            message=f"Missing required parameter: {parameter}",
+            error_code="MISSING_PARAMETER",
+            details={"parameter": parameter}
+        )
+
+class InvalidType(ValidationException):
+    """Raised when required parameter is missing"""
+    def __init__(self, field: str, field_type:str, expected_type:str):
+        super().__init__(
+            message=f"Invalid type: {field_type}",
+            error_code="INVALID_TYPE",
+            details={"field": field,
+                     "field_type": field_type,
+                     "expected_type": expected_type}
+        )
+
+# ============================================================================
+# Configuration Exceptions
+# ============================================================================
+class ConfigurationException(RetrievalBaseException):
+    """Base exception for configuration errors"""
+    def __init__(self, message: str, error_code:str = "CONFIGURATION_ERROR", status_code: int = 500, details: Optional[Dict[str, Any]] = None):
+        super().__init__(message, error_code=error_code, status_code=status_code, details=details)
+
+class MissingConfigException(ConfigurationException):
+    """Raised when a config is missing"""
+    def __init__(self, config_key:str):
+        super().__init__(
+            message=f"Missing a required config: {config_key}",
+            error_code="MISSING_CONFIG",
+            details={
+                "config_key": config_key
+            }
+        )
+
+class InvalidConfigException(ConfigurationException):
+    """Raised when configuration value is invalid"""
+    def __init__(self, config_key: str, value: Any, reason: str):
+        super().__init__(
+            message=f"Invalid configuration: {config_key}",
+            error_code="INVALID_CONFIGURATION",
+            details={
+                "config_key": config_key,
+                "value": str(value),
+                "reason": reason
+            }
+        )
+        
 # ============================================================================
 # Rate Limiting Exceptions
 # ============================================================================

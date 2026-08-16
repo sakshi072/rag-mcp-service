@@ -5,9 +5,10 @@ import time
 import logging
 from app.core import require_scope, extract_scopes
 from fastapi import APIRouter, Depends
-
+from uuid import UUID
 from app.api.dependencies import get_vectore_storage_retrieval
 from app.schemas import SearchRequest, SearchResponse, SourceReference, SearchHistory, SearchResult
+from app.core.exceptions import ServiceUnavailableException, InvalidParameterException
 
 logger = logging.getLogger(__name__)
 
@@ -44,7 +45,7 @@ async def search_documents(
     """
     vectore_storage_retrieval = get_vectore_storage_retrieval()
     if vectore_storage_retrieval is None:
-        raise
+        raise ServiceUnavailableException("KnowledgeBase", "Not initialized")
 
     client_id = token.get("sub", "unknown")
     scopes = extract_scopes(token)
@@ -110,7 +111,7 @@ async def search_history(
     """
     vector_storage_retrieval = get_vectore_storage_retrieval()
     if vector_storage_retrieval is None:
-        raise
+        raise ServiceUnavailableException("KnowledgeBase", "Not initialized")
 
     client_id = token.get("sub", "unknown")
     scopes = extract_scopes(token)
@@ -147,7 +148,7 @@ async def search_history_by_search_id(
     """
     vector_storage_retrieval = get_vectore_storage_retrieval()
     if vector_storage_retrieval is None:
-        raise
+        raise ServiceUnavailableException("KnowledgeBase", "Not initialized")
 
     client_id = token.get("sub", "unknown")
     scopes = extract_scopes(token)
@@ -156,6 +157,10 @@ async def search_history_by_search_id(
         f"Search history by id request from client: {client_id}, scopes: {scopes}"
     )
 
-    result = await vector_storage_retrieval.get_search_history_by_id(search_id)
+    try:
+        search_uuid = UUID(search_id)
+    except ValueError:
+        raise InvalidParameterException("Search_id", search_id, "Search ID not in UUID format")
+    result = await vector_storage_retrieval.get_search_history_by_id(search_uuid)
 
     return result

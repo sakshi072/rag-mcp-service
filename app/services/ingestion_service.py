@@ -25,6 +25,13 @@ from app.utils.semantic_chunker import HybridChunker, SemanticChunker
 from app.core.settings import settings
 from fastapi import UploadFile
 from app.schemas import FileUploadResult, UploadStatus
+from app.core.exceptions import (
+    UnsupportedFileTypeException, 
+    DocumentException,  
+    InsufficientContentException,
+    InvalidType
+)
+
 logger = logging.getLogger(__name__)
 
 
@@ -75,7 +82,7 @@ class IngestionService:
         if f".{file_ext}" not in allowed_extensions:
             logger.warning(f"[{file_number}/{total_files}] Skipped (unsupported): {filename}")
             if total_files == 1:
-                logger.warning("Unsupported file type")
+                raise UnsupportedFileTypeException(file_ext, list(allowed_extensions))
             return FileUploadResult(
                 filename=filename,
                 status=UploadStatus.FAILED,
@@ -144,7 +151,7 @@ class IngestionService:
                 f"[{file_number}/{total_files}] Failed: {filename} - {error_msg}"
             )
             if total_files == 1:
-                logger.warning("Error processing document")
+                raise DocumentException(f"Error processing document '{filename}': {str(e)}")
 
             return FileUploadResult(
                 filename=filename,
@@ -345,13 +352,13 @@ class IngestionService:
             parsed_result = DocumentParser.parse(file_data, file_type)
 
             if not isinstance(parsed_result, dict):
-                logger.warning("Invalid document type")
+                raise InvalidType("parsed_result", str({type(parsed_result)}), "dict")
 
             parsed_text = parsed_result["text"]
             parse_metadata = parsed_result.get("metadata", {})
 
             if len(parsed_text) < 10:
-                logger.warning("Insufficient file content")
+                raise InsufficientContentException(filename)
 
             if isinstance(parse_metadata, dict):
                 document.metadata_ = {**(metadata or {}), **parse_metadata}

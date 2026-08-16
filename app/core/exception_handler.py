@@ -130,7 +130,7 @@ async def validation_exception_handler(request:Request, exc: Union[RequestValida
     )
 
     error_response = ErrorResponse(
-        error=status.HTTP_422_UNPROCESSABLE_CONTENT,
+        error=status.HTTP_422_UNPROCESSABLE_ENTITY,
         message="Request validation error",
         detail={
             "request_id":request_id,
@@ -140,7 +140,7 @@ async def validation_exception_handler(request:Request, exc: Union[RequestValida
     )
 
     return JSONResponse(
-        status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+        status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
         content=error_response.model_dump(exclude_none=True)
     )
                                                                                          

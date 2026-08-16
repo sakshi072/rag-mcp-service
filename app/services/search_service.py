@@ -19,13 +19,13 @@ from app.db import DocumentChunk, Domain, db_manager, SearchAnalytics
 from app.utils.embeddings import get_shared_embedder, embed_chunks
 from app.utils.reranking_strategy import (
     RerankCandidate,
-    RerankerConfig,
     RerankStrategy,
     UnifiedReranker,
 )
 from app.utils.redis_cache_helper import SearchCache
 from app.schemas import SearchResult
 from app.core.settings import settings
+from app.core.exceptions import InvalidQueryException
 
 logger = logging.getLogger(__name__)
 
@@ -72,6 +72,18 @@ class SearchService:
             Dictionary with sources and metadata
         """
         start_time = time.time()
+
+        # Validate inputs at the service boundary, not just at the FastAPI
+        if not query_text or not query_text.strip():
+            raise InvalidQueryException(query=query_text or "", reason="Query is empty or whitespace-only")
+ 
+        if top_k < 1:
+            raise InvalidQueryException(query=query_text, reason=f"top_k must be >= 1, got {top_k}")
+ 
+        MAX_TOP_K = 50
+        if top_k > MAX_TOP_K:
+            raise InvalidQueryException(query=query_text, reason=f"top_k must be <= {MAX_TOP_K}, got {top_k}")
+ 
         logger.info(f"Search: {query_text[:50]}...")
         
         async with db_manager.session() as session:
